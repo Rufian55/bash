@@ -1,0 +1,137 @@
+#!/bin/bash
+
+# trap calls cleanup() on receiving signals: 1-SIGHUP, 2-SIGINT, or 15-SIGTERM
+trap cleanup 1 2 15
+
+function usage() {
+	echo "Usage: $0 {-rows|-cols} [input_file]" 1>&2
+}
+
+function cleanup() {
+	if [[ -e datafile$$ ]]; then
+		rm "datafile$$"
+	fi
+	if [[ -e tmpfile$$ ]]; then
+		rm "tmpfile$$"
+	fi
+}
+
+function round() {
+	denom="$2"
+	if [[ "$denom" = "0" ]]; then
+		denom="1"
+
+	fi
+	echo $((($1 + $2/2) / $denom))
+}
+
+if [[ "$#" = "0" || "$#" -ge "3" ]]; then
+	usage
+	exit 1
+fi
+
+datafilepath="datafile$$"
+tmpfile="tmpfile$$"
+
+if [ "$#" = "1" ] && [[ "$1" == -r* ||  "$1" == -c* ]]; then
+	if [ -t 0 ]; then # [1]
+		cat <<EOF
+ Enter your data, ints only, use TAB delimiter
+ between ints, <Enter> for new line. ALL lINES
+ MUST BE SAME LENGTH OR INPUT WILL BE REJECTED.
+ <ENTER> Ctrl+d to submit your data.
+
+EOF
+	fi
+
+cat > "$datafilepath"
+
+else
+	datafilepath=$2
+fi
+
+if [ ! -f $datafilepath ]; then
+	echo "Input-file not found"
+	cleanup
+	exit 1
+fi
+
+if [ -r $datafilepath ]; then
+	tmp="$( wc -c < ${datafilepath} )"
+else
+	echo "$0 reports input file not readable!" 1>&2
+	cleanup
+	exit 1
+fi
+
+if [ "$tmp" = "0" ]; then
+	echo "$0 reports input file empty!" 1>&2
+	cleanup
+	exit 1
+fi
+
+if [[ "$1" = -r* ]] && [[ "$#" = "2" || "$#" = "1" ]]; then
+	echo -e "Average\tMedian"
+	while read -a line; do
+		total=0
+		sum=0
+		for i in "${line[@]}"; do
+			((sum += $i))
+			((total++))
+			echo $i >> $tmpfile
+		done
+		medianIdx=$(($total/2+1))
+		sort -n $tmpfile -o $tmpfile
+		median=$(sed "${medianIdx}q;d" $tmpfile)
+		echo -e $(round $sum $total)'\t'$median
+		> $tmpfile
+	done < "$datafilepath"
+
+elif [[ "$1" = -c* ]] && [[ "$#" = "2" || "$#" = "1" ]]; then
+	i=1
+	medians=()
+	averages=()
+	while read col; do
+		sum=0
+		total=0
+		echo $(cut -f $i $datafilepath) | tr ' ' '\n' | sort -n >> $tmpfile
+		((i++))
+		while read num; do
+		((total++))
+		((sum += num))
+		done < $tmpfile
+		medianIdx=$(($total/2+1))
+		median="$(sed "${medianIdx}q;d" $tmpfile) "
+		medians+=$median
+		if [[ "$total" -ne "0" ]]; then
+			average="$(round $sum $total) "
+			if [[ $average -ne ""  ]]; then
+				averages+=$average
+			fi
+		fi
+		> $tmpfile
+	done < "$datafilepath"
+	echo "Averages:"
+	echo $averages
+	echo "Medians:"
+	echo $medians
+else
+	usage
+	exit 1
+fi
+
+cleanup
+exit 0
+
+#[1]http://stackoverflow.com/questions/2456750/detect-presence-of-stdin-contents-in-shell-script
+#http://stackoverflow.com/questions/15573679/unary-operator-expected-in-shell-script-when-comparing-null-value-with-string
+#http://stackoverflow.com/questions/1815329/portable-way-to-get-file-size-in-bytes-in-shell
+#http://stackoverflow.com/questions/33006845/how-to-sum-a-row-of-numbers-from-text-file-bash-shell-scripting
+#ihttp://stackoverflow.com/questions/32917920/bash-find-average-of-numbers-in-line
+#http://superuser.com/questions/90008/how-to-clear-the-contents-of-a-file-from-the-command-line
+#http://ss64.com/bash/sort.html
+#http://stackoverflow.com/questions/6022384/bash-tool-to-get-nth-line-from-a-file
+#http://stackoverflow.com/questions/947897/block-comments-in-a-shell-script
+#http://stackoverflow.com/questions/17336915/return-value-in-bash-script
+#http://unix.stackexchange.com/questions/35369/how-to-cut-by-tab-character
+#http://ss64.com/bash/cut.html
