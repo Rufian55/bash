@@ -159,7 +159,7 @@ elif [[ "$1" = -c* ]]; then
 		median="$(sed "${medianIdx}q;d" $tmpfile) " #[8]
 		medians+=$median
 		if [[ "$total" -ne "0" ]]; then
-			average="$(round $sum $total) "
+			average="$(round $sum $total) " # Note trailing spaces.
 			if [[ $average -ne "" ]]; then
 				averages+=$average
 			fi
