@@ -1,12 +1,19 @@
 #!/bin/bash
 
-# trap calls cleanup() on receiving signals: 1-SIGHUP, 2-SIGINT, or 15-SIGTERM
-trap cleanup 1 2 15
+#####################################################################
+# Bash 4.1 script: stats 
+# Author: Chris Kearns	Date: 11 Oct 2016	Course: CS344-400-F16
+# Typical call: 	stats {-r* | -c*| [input_file]
+# Piped call: 		cat [input_dile] | stats {-r* | -c*} 
+# CLI call:			stats {-r* | -c*} (Instructions provided)
+# stas returns average and median of an int matrix of any dimension
+# by row or column as specified by the user with -r* or -c* flags.
+# Calculated data is average and median by row or column.
+# All temp files created are deleted at program termination. See [14]
+#####################################################################
 
-function usage() {
-	echo "Usage: $0 {-rows|-cols} [input_file]" 1>&2
-}
-
+# Called on program end. Checks for existence of temporary
+# files and if true, deletes them.
 function cleanup() {
 	if [[ -e datafile$$ ]]; then
 		rm "datafile$$"
@@ -16,92 +23,141 @@ function cleanup() {
 	fi
 }
 
+# trap calls cleanup() on receiving signals:
+# 1-SIGHUP, 2-SIGINT, or 15-SIGTERM
+trap cleanup 1 2 15
+
+# returns error message when called. Exit status handled by
+# caller.
+function usage() {
+	echo "Usage: $0 {-rows|-cols} [input_file]" 1>&2
+}
+
+# Rounds two arguments passed to the nearest integer.
+# denom used to protect against divide by zero error.
 function round() {
 	denom="$2"
-	if [[ "$denom" = "0" ]]; then
+	if [[ "$denom" = "0" ]]; then	#[2]
 		denom="1"
-
 	fi
 	echo $((($1 + $2/2) / $denom))
 }
 
+# Checks for argument numbe 1 or 2, echos usage error
+# message and exits if otherwise.
 if [[ "$#" = "0" || "$#" -ge "3" ]]; then
 	usage
 	exit 1
 fi
 
+# Declares two temp files. datafilepath for accepting input
+# via file or entered from CLI. tmpfile used for column stats
+# calculations. Both include PID for parallel execution.
 datafilepath="datafile$$"
 tmpfile="tmpfile$$"
 
+# If stats is called without user's input_file specified, user
+# is provided opportunity to manually enter their data from the
+# CLI. User data then redirected to $datafilepath. If user
+# input was specified as a file in arg[2], datafilepath is
+# simply assigned arg[2] aka ($2).
 if [ "$#" = "1" ] && [[ "$1" == -r* ||  "$1" == -c* ]]; then
-	if [ -t 0 ]; then # [1]
+	if [ -t 0 ]; then	# [1]
 		cat <<EOF
  Enter your data, ints only, use TAB delimiter
- between ints, <Enter> for new line. ALL lINES
- MUST BE SAME LENGTH OR INPUT WILL BE REJECTED.
- <ENTER> Ctrl+d to submit your data.
+ between ints, <Enter> for new line. All rows 
+ should be the same length, but stats will ignore
+ "empties" and still return a valid result.
+ <ENTER> <Ctrl+d> to submit your data.
 
 EOF
-	fi
-
-cat > "$datafilepath"
-
+	fi #[9]
+	cat > "$datafilepath"
 else
 	datafilepath=$2
 fi
 
+# Check for file does NOT exist in local directory. Error
+# message echo'd, clenup(), and exit 1 if true.
 if [ ! -f $datafilepath ]; then
-	echo "Input-file not found"
+	echo "$0 reports INPUT_FILE NOT FOUND!" 1>&2
 	cleanup
 	exit 1
 fi
 
+# Check for if file readable, assign file's word count to
+# tmp if so, error message, cleanup(), and exit 1 if not.
 if [ -r $datafilepath ]; then
-	tmp="$( wc -c < ${datafilepath} )"
+	tmp="$( wc -c < ${datafilepath} )"	#[3]
 else
-	echo "$0 reports input file not readable!" 1>&2
+	echo "$0 reports INPUT_FILE NOT READABLE!" 1>&2
 	cleanup
 	exit 1
 fi
 
+# Using tmp from above, check if file is empty, if true,
+# error message, cleanup(), and exit 1.
 if [ "$tmp" = "0" ]; then
-	echo "$0 reports input file empty!" 1>&2
+	echo "$0 reports INPUT_FILE EMPTY!" 1>&2
 	cleanup
 	exit 1
 fi
 
-if [[ "$1" = -r* ]] && [[ "$#" = "2" || "$#" = "1" ]]; then
+# Calculates and outputs row data from input_file/data
+# and outputs formatted data to screen. Method reads
+# $datafilepath by line, keeping a running sum of each
+# element of the line, incrments $total, and echos to
+# $tmpfile.  $tmpfile is subsequently sorted in place,
+# the median's index value determined, and echoed. $tmpfile
+# is erased on each pass of the while loop.
+if [[ "$1" = -r* ]]; then
 	echo -e "Average\tMedian"
 	while read -a line; do
 		total=0
 		sum=0
-		for i in "${line[@]}"; do
+		for i in "${line[@]}"; do #[4][5]
 			((sum += $i))
 			((total++))
 			echo $i >> $tmpfile
 		done
 		medianIdx=$(($total/2+1))
-		sort -n $tmpfile -o $tmpfile
-		median=$(sed "${medianIdx}q;d" $tmpfile)
-		echo -e $(round $sum $total)'\t'$median
-		> $tmpfile
+		sort -n $tmpfile -o $tmpfile #[7]
+		median=$(sed "${medianIdx}q;d" $tmpfile) #[8]
+		echo -e $(round $sum $total)'\t'$median #[10]
+		> $tmpfile #[6]
 	done < "$datafilepath"
-
-elif [[ "$1" = -c* ]] && [[ "$#" = "2" || "$#" = "1" ]]; then
-	i=1
+	cleanup
+# Calculates and outputs formatted column data from
+# input_file/data to two collection arrays [medians
+# and averages] for subsequent echo to screen.
+# First while loop determines how many columns
+# exist, 2nd while loop processes the data by cutting
+# by element as $j is incremented, formatted by tr to
+# column style, sorted, and redirected to $tmpfile. Once
+# $tmpfile is populated, similar procedure to above is 
+# used to determine average and median. The collector
+# arrays assist in outputing the data in a single line.
+# Note $tmpfile contents erased on each pass of the 
+# outer while loop.
+elif [[ "$1" = -c* ]]; then
+	j=1
+	start=1
+	while read col; do
+		stop=${#col}
+	done < "$datafilepath"
 	medians=()
 	averages=()
-	while read col; do
+	while [ "$start" -le "$stop" ]; do #[13]
 		sum=0
 		total=0
-		echo $(cut -f $i $datafilepath) | tr ' ' '\n' | sort -n >> $tmpfile
-		((i++))
+		echo $(cut -f $j $datafilepath) | tr ' ' '\n' | sort -n >> $tmpfile #[11][12]
+		((j++))
 		while read num; do
-		((total++))
-		((sum += num))
+			((total++))
+			((sum += num))
 		done < $tmpfile
 		medianIdx=$(($total/2+1))
-		median="$(sed "${medianIdx}q;d" $tmpfile) "
+		median="$(sed "${medianIdx}q;d" $tmpfile) " #[8]
 		medians+=$median
 		if [[ "$total" -ne "0" ]]; then
 			average="$(round $sum $total) "
@@ -110,28 +166,37 @@ elif [[ "$1" = -c* ]] && [[ "$#" = "2" || "$#" = "1" ]]; then
 			fi
 		fi
 		> $tmpfile
-	done < "$datafilepath"
+		((start++))
+	done
+	cleanup
 	echo "Averages:"
 	echo $averages
 	echo "Medians:"
 	echo $medians
 else
 	usage
+	cleanup
 	exit 1
 fi
-
+# We've gotten this far without exiting, so we cleanup()
+# and exit with success! Final cleanup call could be omitted.
+# Added cleanup calls to if_else -r*/-c* blocks as a precaution.
 cleanup
 exit 0
 
-#[1]http://stackoverflow.com/questions/2456750/detect-presence-of-stdin-contents-in-shell-script
-#http://stackoverflow.com/questions/15573679/unary-operator-expected-in-shell-script-when-comparing-null-value-with-string
-#http://stackoverflow.com/questions/1815329/portable-way-to-get-file-size-in-bytes-in-shell
-#http://stackoverflow.com/questions/33006845/how-to-sum-a-row-of-numbers-from-text-file-bash-shell-scripting
-#ihttp://stackoverflow.com/questions/32917920/bash-find-average-of-numbers-in-line
-#http://superuser.com/questions/90008/how-to-clear-the-contents-of-a-file-from-the-command-line
-#http://ss64.com/bash/sort.html
-#http://stackoverflow.com/questions/6022384/bash-tool-to-get-nth-line-from-a-file
-#http://stackoverflow.com/questions/947897/block-comments-in-a-shell-script
-#http://stackoverflow.com/questions/17336915/return-value-in-bash-script
-#http://unix.stackexchange.com/questions/35369/how-to-cut-by-tab-character
-#http://ss64.com/bash/cut.html
+#CITATIONS - All code developed / adapted from below.
+#[1] http://stackoverflow.com/questions/2456750/detect-presence-of-stdin-contents-in-shell-script
+#[2] http://stackoverflow.com/questions/15573679/unary-operator-expected-in-shell-script-when-comparing-null-value-with-string
+#[3] http://stackoverflow.com/questions/1815329/portable-way-to-get-file-size-in-bytes-in-shell
+#[4] http://stackoverflow.com/questions/33006845/how-to-sum-a-row-of-numbers-from-text-file-bash-shell-scripting
+#[5] ihttp://stackoverflow.com/questions/32917920/bash-find-average-of-numbers-in-line
+#[6] http://superuser.com/questions/90008/how-to-clear-the-contents-of-a-file-from-the-command-line
+#[7] http://ss64.com/bash/sort.html
+#[8] http://stackoverflow.com/questions/6022384/bash-tool-to-get-nth-line-from-a-file
+#[9] http://stackoverflow.com/questions/947897/block-comments-in-a-shell-script
+#[10] http://stackoverflow.com/questions/17336915/return-value-in-bash-script
+#[11] http://unix.stackexchange.com/questions/35369/how-to-cut-by-tab-character
+#[12] http://ss64.com/bash/cut.html
+#[13] http://www.tldp.org/LDP/abs/html/abs-guide.html#LOOPS
+#[14] Unless otherwise noted above, all code additionaly developed from Prof. B. Brewster's cs344 Canvas lectures,
+#     Oregon State University, Fall 2016.
