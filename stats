@@ -1,14 +1,13 @@
 #!/bin/bash
-
 #####################################################################
 # Bash 4.1 script: stats 
-# Author: Chris Kearns	Date: 11 Oct 2016	Course: CS344-400-F16
+# Author: Chris Kearns	Date: 11 Oct 2016
 # Typical call: 	stats {-r* | -c*| [input_file]
-# Piped call: 		cat [input_dile] | stats {-r* | -c*} 
-# CLI call:			stats {-r* | -c*} (Instructions provided)
-# stas returns average and median of an int matrix of any dimension
+# Piped call: 		cat {input_file} | stats {-r* | -c*} 
+# CLI call:		stats {-r* | -c*} (Instructions provided)
+# stats returns average and median of an int matrix of any dimension
 # by row or column as specified by the user with -r* or -c* flags.
-# Calculated data is average and median by row or column.
+# Calculated data is average and median by rows or columns.
 # All temp files created are deleted at program termination. See [14]
 #####################################################################
 
@@ -27,7 +26,7 @@ function cleanup() {
 # 1-SIGHUP, 2-SIGINT, or 15-SIGTERM
 trap cleanup 1 2 15
 
-# returns error message when called. Exit status handled by
+# Returns error message when called. Exit status handled by
 # caller.
 function usage() {
 	echo "Usage: $0 {-rows|-cols} [input_file]" 1>&2
@@ -43,7 +42,7 @@ function round() {
 	echo $((($1 + $2/2) / $denom))
 }
 
-# Checks for argument numbe 1 or 2, echos usage error
+# Checks for argument number 1 or 2, echos usage error
 # message and exits if otherwise.
 if [[ "$#" = "0" || "$#" -ge "3" ]]; then
 	usage
@@ -78,7 +77,7 @@ else
 fi
 
 # Check for file does NOT exist in local directory. Error
-# message echo'd, clenup(), and exit 1 if true.
+# message echoed, cleanup(), and exit 1 if true.
 if [ ! -f $datafilepath ]; then
 	echo "$0 reports INPUT_FILE NOT FOUND!" 1>&2
 	cleanup
@@ -109,7 +108,7 @@ fi
 # element of the line, incrments $total, and echos to
 # $tmpfile.  $tmpfile is subsequently sorted in place,
 # the median's index value determined, and echoed. $tmpfile
-# is erased on each pass of the while loop.
+# contents are erased on each pass of the while loop.
 if [[ "$1" = -r* ]]; then
 	echo -e "Average\tMedian"
 	while read -a line; do
@@ -161,7 +160,7 @@ elif [[ "$1" = -c* ]]; then
 		medians+=$median
 		if [[ "$total" -ne "0" ]]; then
 			average="$(round $sum $total) "
-			if [[ $average -ne ""  ]]; then
+			if [[ $average -ne "" ]]; then
 				averages+=$average
 			fi
 		fi
