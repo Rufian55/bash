@@ -2,10 +2,10 @@
 
 #####################################################################
 # Bash 4.1 script: stats 
-# Author: Chris Kearns	Date: 11 Oct 2016	Course: CS344-400-F16
-# Typical call: 	stats {-r* | -c*| [input_file]
-# Piped call: 		cat [input_file] | stats {-r* | -c*} 
-# CLI call:			stats {-r* | -c*} (Instructions provided)
+# Author: Chris Kearns Date: 11 Oct 2016
+# Typical call: stats {-r* | -c*| [input_file]
+# Piped call: 	cat [input_file] | stats {-r* | -c*} 
+# CLI call:	stats {-r* | -c*} (Instructions provided)
 # stats returns average and median of an int matrix of any dimension
 # by row or column as specified by the user with -r* or -c* options.
 # Calculated data is average and median by row or column.
@@ -135,12 +135,12 @@ if [[ "$1" = -r* ]]; then
 			echo $i >> $tmpfile
 		done
 		medianIdx=$(($total/2+1))
-		sort -n $tmpfile -o $tmpfile				  #[7] Sort in place.
+		sort -n $tmpfile -o $tmpfile		  #[7] Sort in place.
 		# Search $tmpfile for line# == [medianIDX], quit; delete if !line#[medianIDX].
 		# sed quits and returns value at medianIDX, unparsed lines remain in $tmpfile. 
 		median=$(sed "${medianIdx}q;d" $tmpfile) #[8]
 		echo -e $(round $sum $total)'\t'$median  #[10]
-		> $tmpfile										  #[6] Clears all remaining data in $tmpfile.
+		> $tmpfile				 #[6] Clears all remaining data in $tmpfile.
 	done < "$datafilepath"
 	cleanup
 # Calculates and outputs formatted column data from
