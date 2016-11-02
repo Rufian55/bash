@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# From the command line, call this file in the background with "sigchldtest &"
+# Note process id returned or get it with psme call.
+# for psme add an alias to your .bashrc file as follows:
+# alias psme=\ps -o ppid,pid,euser,stat,%cpu,rss,args | head -n 1; ps -eH -o ppid,pid,euser,stat,%cpu,rss,args | grep "yourUserName"
+# Look for the line with "/bin/bash ./sigchldtest and note PID
+# Then, from the command line, enter "kill -SIGUSR1 PID
+# May need to press enter again.
+# Finaly, enter "psme" again and the process should be terminated.
+
+set -m # see man set for details.
+trap "echo 'Triggering a child process termination with a silent ls'; ls > /dev/null" USR1
+trap "echo 'SIGCHLD Received! Exiting!'; exit 0" CHLD
+while [ 1 -eq 1 ]
+do
+	echo "nothing" > /dev/null
+done
+
