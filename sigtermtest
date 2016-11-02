@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# First, in your .bashrc file, add the following alias:
+
+# alias psme=\ps -o ppid,pid,euser,stat,%cpu,rss,args | head -n 1; ps -eH -o ppid,pid,euser,stat,%cpu,rss,args | grep username
+
+# Then, from the command line, execute 'chmod 755 sigtermtest'
+
+# Run this file in the background. from the command line 'sigtermtest &'
+
+# Then 'psme' and note the PID of the " /bin/bash ./sigtermtest " line.
+
+# Finally, from the command line, enter kill -SIGTERM PID (that you noted above.
+
+trap "echo 'SIGTERM Received! Exiting with 0!'; exit 0" SIGTERM
+while [ 1 -eq 1 ] # Infinite loop.
+do
+	echo "nothing" > /dev/null
+done
+
